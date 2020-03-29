@@ -31,6 +31,7 @@ import static org.apache.spark.sql.functions.sum;
 /*
 *
 * https://spark.apache.org/docs/latest/rdd-programming-guide.html
+*
 * */
 public class TestSpark {
 
@@ -84,14 +85,12 @@ public class TestSpark {
                 .option("inferSchema", "true")
                 .option("header", "true")
                 .option("delimiter", "}")
-                .load("/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/codekata/resources/test.csv");
-
+                .load("src/test/java/com/codekata/resources/test.csv");
 
         ArrayList<String> inputColsList = new ArrayList<>(asList(df.columns()));
-        System.out.println(inputColsList);
-        System.out.println(df.count());
         df.printSchema();
         df.show();
+        Assert.assertEquals(2,df.count());
     }
 
 
