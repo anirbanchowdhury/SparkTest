@@ -1,4 +1,4 @@
-package com.anicom;
+package com.codekata;
 
 import org.apache.spark.api.java.function.FilterFunction;
 import org.apache.spark.sql.SparkSession;

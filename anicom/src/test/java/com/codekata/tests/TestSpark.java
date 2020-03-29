@@ -1,9 +1,7 @@
-package com.anicompany.tests;
+package com.codekata.tests;
 
-import com.anicom.SparkSessionFactory;
+import com.codekata.SparkSessionFactory;
 import com.gs.collections.impl.list.mutable.FastList;
-import com.sun.source.doctree.SerialDataTree;
-import org.apache.avro.generic.GenericData;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -15,21 +13,16 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.openjdk.jmh.annotations.Benchmark;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
 
 import static java.util.Arrays.*;
-import static org.apache.hadoop.yarn.webapp.hamlet.HamletSpec.Scope.col;
 import static org.apache.spark.sql.functions.count;
 
 import static org.apache.spark.sql.functions.sum;
@@ -65,7 +58,7 @@ public class TestSpark {
             Spark’s primary abstraction is a distributed collection of items called a Dataset.
             Datasets can be created from Hadoop InputFormats (such as HDFS files) or by transforming other Datasets
          */
-        Dataset<String> logData = sparkSession.read().textFile("/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/anicompany/resources/test.csv");
+        Dataset<String> logData = sparkSession.read().textFile("src/test/java/com/codekata/resources/test.csv");
         logData.show();
         long numAs = logData
                 .filter((FilterFunction<String>) s -> s.contains("A"))
@@ -77,7 +70,7 @@ public class TestSpark {
 
     @Test
     public void testReduce() {
-        JavaRDD<String> distFile = javaSparkContext.textFile("/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/anicompany/resources/test.csv");
+        JavaRDD<String> distFile = javaSparkContext.textFile("src/test/java/com/codekata/resources/test.csv");
         System.out.println(distFile
                 .map(String::length)
                 .reduce((a, b) -> a + b));
@@ -91,7 +84,7 @@ public class TestSpark {
                 .option("inferSchema", "true")
                 .option("header", "true")
                 .option("delimiter", "}")
-                .load("/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/anicompany/resources/test.csv");
+                .load("/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/codekata/resources/test.csv");
 
 
         ArrayList<String> inputColsList = new ArrayList<>(asList(df.columns()));
@@ -110,7 +103,7 @@ public class TestSpark {
                 .add("ccy", "string")
                 .add("amount", "double");
 
-        String file = "/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/anicompany/resources/sample.csv";
+        String file = "src/test/java/com/codekata/resources/sample.csv";
         Dataset<Row> dataset = sparkSession.read()
                 .format("csv")
                 .schema(schema)
@@ -145,7 +138,7 @@ public class TestSpark {
                 .add("ccy", "string")
                 .add("amount", "double");
 
-        String file = "/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/anicompany/resources/sample.csv";
+        String file = "src/test/java/com/codekata/resources/sample.csv";
         Dataset<Row> dataset = sparkSession.read()
                 .format("csv")
                 .schema(schema)
@@ -180,7 +173,7 @@ public class TestSpark {
                 .add("ccy", "string")
                 .add("amount", "double");
 
-        String file = "/Users/aniamritapc/IdeaProjects/Test/anicom/src/test/java/com/anicompany/resources/sample.csv";
+        String file = "src/test/java/com/codekata/resources/sample.csv";
         Dataset<Row> dataset = sparkSession.read()
                 .format("csv")
                 .schema(schema)
@@ -196,11 +189,7 @@ public class TestSpark {
         long timeElapsed = Duration.between(start, finish).toNanos();
         //  System.out.println("TimeElapsed = "+timeElapsed);
         */
-
-
-
         //  System.out.println("timeElap[sed = "+ Duration.between(finish,Instant.now()).toNanos());
-
 
         //Transformation
         JavaRDD<Balance> javaRDD = javaSparkContext.textFile(file)
@@ -210,13 +199,12 @@ public class TestSpark {
 
                 });
 
-
         JavaPairRDD<String, Integer> pairRDD = javaRDD
                 .mapToPair((PairFunction<Balance, String, Integer>) balance -> new Tuple2<>(balance.account + balance.ccy, 1))
                 .reduceByKey((Function2<Integer, Integer, Integer>) (v1, v2) -> v1 + v2);
 
 
-        Assert.assertEquals(FastList.newListWith(new Tuple2("A1USD", 1)), pairRDD.take(1));
+        Assert.assertEquals(FastList.newListWith(new Tuple2("A1USD", 2)), pairRDD.take(1));
 
     }
 

@@ -29,7 +29,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.anicom.SimpleApp</mainClass>
+                            <mainClass>com.codekata.SimpleApp</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

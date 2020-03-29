@@ -1,14 +1,9 @@
-package com.anicom;
+package com.codekata;
 
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.api.java.function.FilterFunction;
-import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.SparkSession;
-import org.codehaus.janino.Java;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Optional;
 
 public class SparkSessionFactory {
     private final static Logger logger = LoggerFactory.getLogger(SparkSessionFactory.class);
