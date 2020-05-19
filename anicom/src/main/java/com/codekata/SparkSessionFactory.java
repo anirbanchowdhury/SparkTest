@@ -16,10 +16,12 @@ public class SparkSessionFactory {
     private  SparkSessionFactory (){
         sparkSession =
             SparkSession.builder()
-                    .config("spark.master", "local[*]") // Comment out this line if you are submitting to the cluster
+                    //.config("spark.master", "local[8]") // Comment out this line if you are submitting to the cluster
+                   // .config("spark.default.parallelism",3)
                     .getOrCreate();
 
          javaSparkContext = JavaSparkContext.fromSparkContext(sparkSession.sparkContext());
+         System.out.println(javaSparkContext.getConf().getAll());
     }
 
 

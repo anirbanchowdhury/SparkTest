@@ -1,7 +1,9 @@
 package com.codekata.tests;
 
+import com.codekata.Balance;
 import com.codekata.SparkSessionFactory;
 import com.gs.collections.impl.list.mutable.FastList;
+import org.apache.spark.HashPartitioner;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
@@ -9,18 +11,18 @@ import org.apache.spark.api.java.function.*;
 import org.apache.spark.sql.*;
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
 import org.apache.spark.sql.types.StructType;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.codehaus.janino.Java;
+import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Serializable;
 import scala.Tuple2;
 
-import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.Arrays.*;
 import static org.apache.spark.sql.functions.count;
@@ -29,11 +31,13 @@ import static org.apache.spark.sql.functions.sum;
 
 
 /*
-*
-* https://spark.apache.org/docs/latest/rdd-programming-guide.html
-*
-* */
-public class TestSpark {
+ *
+ * https://spark.apache.org/docs/latest/rdd-programming-guide.html
+ *
+ * */
+
+@Ignore
+public class TestSpark implements Serializable {
 
     private static SparkSession sparkSession;
     private static JavaSparkContext javaSparkContext;
@@ -66,7 +70,7 @@ public class TestSpark {
                 .count();
         long numBs = logData.filter((FilterFunction<String>) s -> s.contains("U")).count();
         System.out.println("Lines with A: " + numAs + ", lines with U: " + numBs);
-        Assert.assertEquals(2,numAs);
+        Assert.assertEquals(2, numAs);
     }
 
     @Test
@@ -90,7 +94,7 @@ public class TestSpark {
         ArrayList<String> inputColsList = new ArrayList<>(asList(df.columns()));
         df.printSchema();
         df.show();
-        Assert.assertEquals(2,df.count());
+        Assert.assertEquals(2, df.count());
     }
 
 
@@ -120,12 +124,12 @@ public class TestSpark {
 
         finalDS.show();
 
-        Object[] items = (Object[])(finalDS.filter(functions.col("sum_amount") //this explicit cast is reqd.
+        Object[] items = (Object[]) (finalDS.filter(functions.col("sum_amount") //this explicit cast is reqd.
                 .equalTo(300.36))
                 .collect());
 
-        String accountNo =  (String)((GenericRowWithSchema)items[0]).get(0);
-        Assert.assertEquals("A2",accountNo);
+        String accountNo = (String) ((GenericRowWithSchema) items[0]).get(0);
+        Assert.assertEquals("A2", accountNo);
 
     }
 
@@ -147,23 +151,22 @@ public class TestSpark {
 
         dataset.printSchema();
         dataset.show();
-        Assert.assertEquals(((Row [])dataset.head(4))[3].getDouble(3),400.12,0); // this explicit cast is also reqd.
+        Assert.assertEquals(((Row[]) dataset.head(4))[3].getDouble(3), 400.12, 0); // this explicit cast is also reqd.
 
         dataset.createOrReplaceTempView("balances");
-        Dataset<Row> filteredDataset =  sparkSession.sql(
+        Dataset<Row> filteredDataset = sparkSession.sql(
                 "SELECT account,ccy, COUNT(*),sum(amount) as sum_amount"
                         + " FROM balances GROUP BY account,ccy"
                         + " having sum(amount) = 500.24 "
                         + " order by account,ccy  ");
 
 
-        Assert.assertEquals("A1",filteredDataset.first().getString(0));
-
+        Assert.assertEquals("A1", filteredDataset.first().getString(0));
 
 
     }
 
-        @Test
+    @Test
     public void testReadFileAll() {
 
         StructType schema = new StructType()
@@ -183,39 +186,99 @@ public class TestSpark {
         dataset.printSchema();
         dataset.show();
 
-        /*Instant start = Instant.now();
-          Instant finish = Instant.now();
-        long timeElapsed = Duration.between(start, finish).toNanos();
-        //  System.out.println("TimeElapsed = "+timeElapsed);
-        */
-        //  System.out.println("timeElap[sed = "+ Duration.between(finish,Instant.now()).toNanos());
 
         //Transformation
-        JavaRDD<Balance> javaRDD = javaSparkContext.textFile(file)
+
+
+        JavaRDD<String> javaRDDWithHeader = javaSparkContext.textFile(file);
+        String headerRow = javaRDDWithHeader.first();
+
+        JavaRDD<Balance> javaRDDWithoutHeader = javaRDDWithHeader
+                .filter((Function<String, Boolean>) v1 -> !v1.equals(headerRow))
                 .map((Function<String, Balance>) line -> {
                     String[] fields = line.split("}");
                     return new Balance(fields[0], fields[1], fields[2].trim(), fields[3]);
 
                 });
 
-        JavaPairRDD<String, Integer> pairRDD = javaRDD
-                .mapToPair((PairFunction<Balance, String, Integer>) balance -> new Tuple2<>(balance.account + balance.ccy, 1))
-                .reduceByKey((Function2<Integer, Integer, Integer>) (v1, v2) -> v1 + v2);
+        JavaPairRDD<DummyString, BigDecimal> pairRDD = javaRDDWithoutHeader
+                //  .mapToPair((PairFunction<Balance, String, Integer>) balance -> new Tuple2<>(balance.getAccount() + balance.getCcy(), 1))
+                .mapToPair(new MyPairFunction())
+                //.reduceByKey((Function2<Integer, Integer, Integer>) (v1, v2) -> v1 + v2)
+                .reduceByKey(new ReductionFunction())
+                //.partitionBy( new HashPartitioner(4))
+                ;
 
-
-        Assert.assertEquals(FastList.newListWith(new Tuple2("A1USD", 2)), pairRDD.take(1));
-
+        System.out.println("Number of partitions = " +pairRDD.getNumPartitions());
+        System.out.println(pairRDD.glom().collect());
+        JavaPairRDD<DummyString, BigDecimal> newPairRDD = pairRDD.repartition(3);
+        System.out.println("Number of partitions = " +newPairRDD.getNumPartitions());
+        System.out.println(newPairRDD.glom().collect());
     }
 
+    class MyPairFunction implements PairFunction<Balance, DummyString, BigDecimal> {
+
+        @Override
+        public Tuple2<DummyString, BigDecimal> call(Balance balance) {
+            return new Tuple2<>(new DummyString(balance.getAccount(), balance.getCcy()), balance.getAmount());
+        }
+    }
+
+    class DummyString implements Serializable {
+        String account;
+        String ccy;
+
+        public DummyString(String account, String ccy) {
+            this.account = account;
+            this.ccy = ccy;
+        }
+
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            DummyString that = (DummyString) o;
+            return Objects.equals(account, that.account) &&
+                    Objects.equals(ccy, that.ccy);
+        }
+
+        @Override
+        public int hashCode() {
+            //System.out.println("DummyString="+this);
+            // System.out.println("Hash="+Objects.hash(account,ccy));
+            return Objects.hash(account, ccy);
+        }
+
+
+        @Override
+        public String toString() {
+            return "DummyString{" +
+                    "\naccount='" + account + '\'' +
+                    ", ccy='" + ccy + '\'' +
+
+                    '}';
+        }
+    }
+
+    class ReductionFunction implements Function2<BigDecimal, BigDecimal, BigDecimal> {
+
+        @Override
+        public BigDecimal call(BigDecimal v1, BigDecimal v2) {
+            return v1.add(v2);
+        }
+    }
+
+
     @Test
-    public void testFunctionalTransformations(){
-        List<List<Integer>> map = javaSparkContext.parallelize(Arrays.asList(1,2,3,4,5))
-                .map(i->Arrays.asList(i,1))
+    public void testFunctionalTransformations() {
+        List<List<Integer>> map = javaSparkContext.parallelize(Arrays.asList(1, 2, 3, 4, 5))
+                .map(i -> Arrays.asList(i, 1))
                 .collect();
         System.out.println(map);
 
-        List<Integer> flatmap = javaSparkContext.parallelize(Arrays.asList(1,2,3,4,5))
-                .flatMap(i->Arrays.asList(i,1).iterator())
+        List<Integer> flatmap = javaSparkContext.parallelize(Arrays.asList(1, 2, 3, 4, 5))
+                .flatMap(i -> Arrays.asList(i, 1).iterator())
                 .collect();
         System.out.println(flatmap);
 
@@ -238,23 +301,3 @@ public class TestSpark {
     }
 }
 
-class Balance implements Serializable {
-    String account, date, ccy, amount;
-
-    public Balance(String account, String date, String ccy, String amount) {
-        this.account = account;
-        this.date = date;
-        this.ccy = ccy;
-        this.amount = amount;
-    }
-
-    @Override
-    public String toString() {
-        return "Balance{" +
-                "account='" + account + '\'' +
-                ", date='" + date + '\'' +
-                ", ccy='" + ccy + '\'' +
-                ", amount='" + amount + '\'' +
-                '}';
-    }
-}
